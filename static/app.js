@@ -1,3 +1,5 @@
+/* static/app.js */
+
 let totalAmount = 0;
 let allocatedAmount = 0;
 let totalExpenses = 0;
@@ -6,6 +8,17 @@ let categories = [];
 let data = {};
 let currentMonth = '';
 let currentYear = '';
+
+// Zuordnung von Icons zu Kategorien
+const categoryIcons = {
+    'Miete': 'fas fa-home',
+    'Lebensmittel': 'fas fa-apple-alt',
+    'Transport': 'fas fa-car',
+    'Unterhaltung': 'fas fa-film',
+    'Rechnungen': 'fas fa-file-invoice-dollar',
+    'Ersparnisse': 'fas fa-piggy-bank',
+    'Sonstiges': 'fas fa-box'
+};
 
 // Initialisierung der Datumsauswahl
 function initDateSelectors() {
@@ -141,11 +154,17 @@ function addCategory() {
         return;
     }
 
+    let iconClass = 'fas fa-envelope'; // Standard-Icon
+    if (categoryIcons[name]) {
+        iconClass = categoryIcons[name];
+    }
+
     const category = {
         name: name,
         allocatedAmount: amount,
         expenses: [],
-        spentAmount: 0
+        spentAmount: 0,
+        icon: iconClass
     };
     categories.push(category);
     allocatedAmount += amount;
@@ -231,7 +250,7 @@ function updateCategoryList() {
 
         li.innerHTML = `
             <h3>
-                ${category.name}
+                <i class="${category.icon}"></i> ${category.name}
                 <button class="delete-btn" onclick="deleteCategory(${index})">&times;</button>
             </h3>
             <div class="category-details">
@@ -276,10 +295,10 @@ function updateExpenseList(categoryIndex) {
 }
 
 function updateSummary() {
-    document.getElementById('displayTotalAmount').innerText = totalAmount.toFixed(2);
-    document.getElementById('allocatedAmount').innerText = allocatedAmount.toFixed(2);
-    document.getElementById('totalExpenses').innerText = totalExpenses.toFixed(2);
-    document.getElementById('remainingAmount').innerText = (totalAmount - allocatedAmount).toFixed(2);
+    document.getElementById('displayTotalAmount').innerText = totalAmount.toFixed(2) + ' €';
+    document.getElementById('allocatedAmount').innerText = allocatedAmount.toFixed(2) + ' €';
+    document.getElementById('totalExpenses').innerText = totalExpenses.toFixed(2) + ' €';
+    document.getElementById('remainingAmount').innerText = (totalAmount - allocatedAmount).toFixed(2) + ' €';
 }
 
 // Aktualisierte Funktion zum Scannen des Kassenzettels
@@ -340,7 +359,6 @@ function scanReceipt(event, categoryIndex) {
             console.error('Fehler:', error);
             alert('Es ist ein Fehler aufgetreten. Bitte versuchen Sie es erneut.');
         });
-    }
 }
 
 // Aktualisierte Funktion zum Anzeigen des Overlays

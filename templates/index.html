@@ -1,9 +1,12 @@
+<!-- templates/index.html -->
 <!DOCTYPE html>
 <html lang="de">
 <head>
     <meta charset="UTF-8">
     <title>Cash Stuffing App</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <!-- Font Awesome CDN einbinden -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
 </head>
 <body>
     <header>
@@ -59,7 +62,7 @@
             <button onclick="addCategory()">Kategorie hinzufügen</button>
         </section>
 
-        <ul id="budgetList"></ul>
+        <ul id="budgetList" class="envelope-list"></ul>
     </main>
 
     <div id="processingOverlay">
