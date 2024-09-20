@@ -13,7 +13,10 @@ from models import User, Category, Expense  # Import der Modelle
 
 app = Flask(__name__)
 app.secret_key = os.environ.get('SECRET_KEY', 'ersetze_durch_sicheren_schlüssel')  # Sicherer Schlüssel aus Umgebungsvariablen
-app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///instance/users.db'  # Pfad zur Datenbank
+
+# Verwenden eines absoluten Pfades für die Datenbank-URI
+basedir = os.path.abspath(os.path.dirname(__file__))
+app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///' + os.path.join(basedir, 'instance', 'users.db')
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 bcrypt = Bcrypt(app)
