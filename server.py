@@ -1,3 +1,4 @@
+# server.py
 from flask import Flask, request, jsonify, session, redirect, url_for, render_template
 from flask_bcrypt import Bcrypt
 from flask_sqlalchemy import SQLAlchemy
@@ -5,26 +6,18 @@ import pytesseract
 from PIL import Image, ImageFilter
 import numpy as np
 import re
+import os
 
 app = Flask(__name__)
-app.secret_key = 'your_secret_key'  # Ersetze dies durch einen sicheren Schlüssel
+app.secret_key = os.environ.get('SECRET_KEY', 'ersetze_durch_sicheren_schlüssel')  # Sicherer Schlüssel aus Umgebungsvariablen
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///users.db'  # Oder dein gewünschtes Datenbanksystem
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 bcrypt = Bcrypt(app)
 db = SQLAlchemy(app)
 
-# Datenbankmodell für Benutzer
-class User(db.Model):
-    id = db.Column(db.Integer, primary_key=True)
-    username = db.Column(db.String(100), nullable=False, unique=True)
-    password = db.Column(db.String(200), nullable=False)
-
-# Datenbankmodell für die Budgetdaten
-class BudgetData(db.Model):
-    id = db.Column(db.Integer, primary_key=True)
-    user_id = db.Column(db.Integer, nullable=False)
-    data = db.Column(db.Text, nullable=False)
+# Datenbankmodelle importieren
+from models import User, Category, Expense
 
 # Route für die Startseite
 @app.route('/')
@@ -73,29 +66,113 @@ def get_data():
     if 'user_id' not in session:
         return jsonify({'success': False, 'message': 'Nicht autorisiert'}), 401
     user_id = session['user_id']
-    budget_data = BudgetData.query.filter_by(user_id=user_id).first()
-    if budget_data:
-        return jsonify({'success': True, 'data': budget_data.data})
+    user = User.query.get(user_id)
+    if user:
+        categories = []
+        for category in user.categories:
+            expenses = [{'description': exp.description, 'amount': exp.amount} for exp in category.expenses]
+            categories.append({
+                'id': category.id,
+                'name': category.name,
+                'allocated_amount': category.allocated_amount,
+                'spent_amount': category.spent_amount,
+                'icon': category.icon,
+                'expenses': expenses
+            })
+        return jsonify({'success': True, 'categories': categories})
     else:
-        return jsonify({'success': True, 'data': '{}'})
-    
-# Route zum Speichern der Budgetdaten
-@app.route('/save_data', methods=['POST'])
-def save_data():
+        return jsonify({'success': False, 'message': 'Benutzer nicht gefunden'}), 404
+
+# Route zum Speichern der Budgetdaten (z.B. Hinzufügen einer Kategorie)
+@app.route('/add_category', methods=['POST'])
+def add_category():
     if 'user_id' not in session:
         return jsonify({'success': False, 'message': 'Nicht autorisiert'}), 401
     user_id = session['user_id']
-    data = request.json.get('data')
-    budget_data = BudgetData.query.filter_by(user_id=user_id).first()
-    if budget_data:
-        budget_data.data = data
-    else:
-        budget_data = BudgetData(user_id=user_id, data=data)
-        db.session.add(budget_data)
+    data = request.json
+    name = data.get('name')
+    allocated_amount = data.get('allocated_amount')
+    icon = data.get('icon', 'fas fa-envelope')  # Standard-Icon, falls nicht angegeben
+
+    if not name or allocated_amount is None:
+        return jsonify({'success': False, 'message': 'Ungültige Daten'}), 400
+
+    category = Category(user_id=user_id, name=name, allocated_amount=allocated_amount, icon=icon)
+    db.session.add(category)
+    db.session.commit()
+    return jsonify({'success': True, 'category_id': category.id})
+
+# Route zum Hinzufügen einer Ausgabe
+@app.route('/add_expense', methods=['POST'])
+def add_expense():
+    if 'user_id' not in session:
+        return jsonify({'success': False, 'message': 'Nicht autorisiert'}), 401
+    user_id = session['user_id']
+    data = request.json
+    category_id = data.get('category_id')
+    description = data.get('description')
+    amount = data.get('amount')
+
+    if not category_id or not description or amount is None:
+        return jsonify({'success': False, 'message': 'Ungültige Daten'}), 400
+
+    category = Category.query.filter_by(id=category_id, user_id=user_id).first()
+    if not category:
+        return jsonify({'success': False, 'message': 'Kategorie nicht gefunden'}), 404
+
+    if category.spent_amount + amount > category.allocated_amount:
+        return jsonify({'success': False, 'message': 'Der Betrag überschreitet den verfügbaren Betrag in dieser Kategorie.'}), 400
+
+    expense = Expense(category_id=category_id, description=description, amount=amount)
+    category.spent_amount += amount
+    db.session.add(expense)
     db.session.commit()
     return jsonify({'success': True})
 
-# Funktion zur Bildvorverarbeitung ohne OpenCV
+# Route für die OCR-Verarbeitung (unverändert, falls weiterhin benötigt)
+@app.route('/ocr', methods=['POST'])
+def ocr():
+    if 'user_id' not in session:
+        return jsonify({'success': False, 'message': 'Nicht autorisiert'}), 401
+    if 'receipt' not in request.files:
+        return jsonify({'success': False, 'message': 'Keine Datei hochgeladen.'}), 400
+
+    file = request.files['receipt']
+    if file.filename == '':
+        return jsonify({'success': False, 'message': 'Keine Datei ausgewählt.'}), 400
+
+    if file and allowed_file(file.filename):
+        try:
+            # Bildvorverarbeitung
+            preprocessed_image = preprocess_image(file.stream)
+
+            # Tesseract-Konfiguration
+            custom_config = r'--oem 3 --psm 6'
+
+            # OCR mit Tesseract
+            text = pytesseract.image_to_string(preprocessed_image, lang='deu', config=custom_config)
+
+            # Debug: Erkannten Text ausgeben (nur im Debug-Modus)
+            if app.debug:
+                print("Erkannter Text:")
+                print(text)
+
+            # Betrag und Geschäftsname extrahieren
+            amount = extract_amount_from_text(text)
+            store_name = extract_store_name(text)
+
+            if amount:
+                return jsonify({'success': True, 'amount': amount, 'storeName': store_name})
+            else:
+                return jsonify({'success': False, 'message': 'Kein gültiger Betrag gefunden.'}), 200
+        except Exception as e:
+            if app.debug:
+                print(e)
+            return jsonify({'success': False, 'message': 'Fehler bei der Verarbeitung des Bildes.'}), 500
+    else:
+        return jsonify({'success': False, 'message': 'Ungültiger Dateityp.'}), 400
+
+# Funktion zur Bildvorverarbeitung ohne OpenCV (unverändert)
 def preprocess_image(file_stream):
     # Bild öffnen
     image = Image.open(file_stream)
@@ -118,7 +195,7 @@ def preprocess_image(file_stream):
 
     return binary
 
-# Funktion zum Extrahieren des Betrags aus dem erkannten Text
+# Funktion zum Extrahieren des Betrags aus dem erkannten Text (unverändert)
 def extract_amount_from_text(text):
     lines = text.split('\n')
     amount = None
@@ -150,7 +227,7 @@ def extract_amount_from_text(text):
 
     return None
 
-# Funktion zum Extrahieren des Geschäftsnames aus dem erkannten Text
+# Funktion zum Extrahieren des Geschäftsnames aus dem erkannten Text (unverändert)
 def extract_store_name(text):
     lines = text.strip().split('\n')
     possible_names = []
@@ -169,55 +246,11 @@ def extract_store_name(text):
         return max(possible_names, key=len)
     return 'Unbekanntes Geschäft'
 
-# Erlaubte Dateitypen für den Upload
+# Erlaubte Dateitypen für den Upload (unverändert)
 def allowed_file(filename):
     allowed_extensions = {'png', 'jpg', 'jpeg'}
     return '.' in filename and \
            filename.rsplit('.', 1)[1].lower() in allowed_extensions
-
-# Route für die OCR-Verarbeitung
-@app.route('/ocr', methods=['POST'])
-def ocr():
-    if 'user_id' not in session:
-        return jsonify({'success': False, 'message': 'Nicht autorisiert'}), 401
-    if 'receipt' not in request.files:
-        return jsonify({'success': False, 'message': 'Keine Datei hochgeladen.'}), 400
-
-    file = request.files['receipt']
-    if file.filename == '':
-        return jsonify({'success': False, 'message': 'Keine Datei ausgewählt.'}), 400
-
-    if file and allowed_file(file.filename):
-        try:
-            # Bildvorverarbeitung
-            preprocessed_image = preprocess_image(file.stream)
-
-            # Tesseract-Konfiguration
-            custom_config = r'--oem 3 --psm 6'
-
-            # OCR mit Tesseract
-            text = pytesseract.image_to_string(preprocessed_image, lang='deu', config=custom_config)
-
-            # Debug: Erkannten Text ausgeben
-            print("Erkannter Text:")
-            print(text)
-
-            # Betrag und Geschäftsname extrahieren
-            amount = extract_amount_from_text(text)
-            store_name = extract_store_name(text)
-
-            if amount:
-                response = {'success': True, 'amount': amount}
-                if store_name:
-                    response['storeName'] = store_name
-                return jsonify(response)
-            else:
-                return jsonify({'success': False, 'message': 'Kein gültiger Betrag gefunden.'}), 200
-        except Exception as e:
-            print(e)
-            return jsonify({'success': False, 'message': 'Fehler bei der Verarbeitung des Bildes.'}), 500
-    else:
-        return jsonify({'success': False, 'message': 'Ungültiger Dateityp.'}), 400
 
 # Datenbank erstellen, falls sie nicht existiert
 with app.app_context():

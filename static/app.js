@@ -5,7 +5,6 @@ let allocatedAmount = 0;
 let totalExpenses = 0;
 let remainingAmount = 0;
 let categories = [];
-let data = {};
 let currentMonth = '';
 let currentYear = '';
 
@@ -63,19 +62,8 @@ function loadData() {
     .then(response => response.json())
     .then(result => {
         if (result.success) {
-            data = JSON.parse(result.data || '{}');
-            const periodData = data[`${currentYear}-${currentMonth}`];
-            if (periodData) {
-                totalAmount = periodData.totalAmount;
-                allocatedAmount = periodData.allocatedAmount;
-                totalExpenses = periodData.totalExpenses;
-                categories = periodData.categories;
-            } else {
-                totalAmount = 0;
-                allocatedAmount = 0;
-                totalExpenses = 0;
-                categories = [];
-            }
+            categories = result.categories;
+            calculateSummary();
             updateCategoryList();
             updateSummary();
         } else {
@@ -87,25 +75,45 @@ function loadData() {
     });
 }
 
-// Funktion zum Speichern der Daten auf dem Server
-function saveData() {
-    data[`${currentYear}-${currentMonth}`] = {
-        totalAmount,
-        allocatedAmount,
-        totalExpenses,
-        categories
-    };
-    fetch('/save_data', {
+// Funktion zum Speichern einer neuen Kategorie auf dem Server
+function saveCategory(name, allocated_amount, icon) {
+    fetch('/add_category', {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json'
         },
-        body: JSON.stringify({ data: JSON.stringify(data) })
+        body: JSON.stringify({ name, allocated_amount, icon })
     })
     .then(response => response.json())
     .then(result => {
-        if (!result.success) {
-            alert('Fehler beim Speichern der Daten auf dem Server.');
+        if (result.success) {
+            // Neue Kategorie wurde erfolgreich hinzugefügt
+            loadData();
+        } else {
+            alert('Fehler beim Hinzufügen der Kategorie: ' + result.message);
+        }
+    })
+    .catch(error => {
+        console.error('Fehler:', error);
+    });
+}
+
+// Funktion zum Speichern einer neuen Ausgabe auf dem Server
+function saveExpense(category_id, description, amount) {
+    fetch('/add_expense', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ category_id, description, amount })
+    })
+    .then(response => response.json())
+    .then(result => {
+        if (result.success) {
+            // Neue Ausgabe wurde erfolgreich hinzugefügt
+            loadData();
+        } else {
+            alert('Fehler beim Hinzufügen der Ausgabe: ' + result.message);
         }
     })
     .catch(error => {
@@ -124,7 +132,7 @@ function setTotalAmount() {
     }
     amountInput.value = '';
     updateSummary();
-    saveData();
+    // Hier könnten Sie den Gesamtbetrag auf dem Server speichern, falls benötigt
 }
 
 function addCategory() {
@@ -149,160 +157,121 @@ function addCategory() {
         return;
     }
 
-    if (allocatedAmount + amount > totalAmount) {
+    // Berechnung prüfen
+    let totalAllocated = categories.reduce((sum, cat) => sum + cat.allocated_amount, 0);
+    if (totalAllocated + amount > totalAmount) {
         alert('Der Betrag überschreitet den verfügbaren Gesamtbetrag.');
         return;
     }
 
+    // Bestimmen des Icons
     let iconClass = 'fas fa-envelope'; // Standard-Icon
     if (categoryIcons[name]) {
         iconClass = categoryIcons[name];
     }
 
-    const category = {
-        name: name,
-        allocatedAmount: amount,
-        expenses: [],
-        spentAmount: 0,
-        icon: iconClass
-    };
-    categories.push(category);
-    allocatedAmount += amount;
-
-    updateCategoryList();
-    updateSummary();
+    // Kategorie auf dem Server speichern
+    saveCategory(name, amount, iconClass);
 
     // Felder zurücksetzen
     selectInput.value = '';
     nameInput.value = '';
     amountInput.value = '';
-
-    saveData();
 }
 
-function deleteCategory(index) {
-    allocatedAmount -= categories[index].allocatedAmount;
-    totalExpenses -= categories[index].spentAmount;
-    categories.splice(index, 1);
-    updateCategoryList();
-    updateSummary();
-    saveData();
+function deleteCategory(category_id) {
+    // Implementieren Sie eine Route auf dem Server zum Löschen einer Kategorie
+    // Diese Funktion muss entsprechend angepasst werden
+    alert('Das Löschen von Kategorien ist derzeit nicht implementiert.');
 }
 
-function addExpense(index) {
-    const descriptionInput = document.getElementById(`expenseDescription${index}`);
-    const amountInput = document.getElementById(`expenseAmount${index}`);
+function addExpenseUI(category) {
+    const expenseList = document.getElementById(`expenseList${category.id}`);
+    const expenseDescription = document.getElementById(`expenseDescription${category.id}`);
+    const expenseAmount = document.getElementById(`expenseAmount${category.id}`);
 
-    const description = descriptionInput.value.trim();
-    const amount = parseFloat(amountInput.value);
+    const description = expenseDescription.value.trim();
+    const amount = parseFloat(expenseAmount.value);
 
     if (description === '' || isNaN(amount) || amount <= 0) {
         alert('Bitte geben Sie eine gültige Beschreibung und einen gültigen Betrag ein.');
         return;
     }
 
-    const category = categories[index];
-
-    if (category.spentAmount + amount > category.allocatedAmount) {
+    if (category.spent_amount + amount > category.allocated_amount) {
         alert('Der Betrag überschreitet den in dieser Kategorie verfügbaren Betrag.');
         return;
     }
 
-    const expense = {
-        description: description,
-        amount: amount
-    };
-
-    category.expenses.push(expense);
-    category.spentAmount += amount;
-    totalExpenses += amount;
-
-    updateCategoryList();
-    updateSummary();
+    // Ausgabe auf dem Server speichern
+    saveExpense(category.id, description, amount);
 
     // Felder zurücksetzen
-    descriptionInput.value = '';
-    amountInput.value = '';
-
-    saveData();
+    expenseDescription.value = '';
+    expenseAmount.value = '';
 }
 
-function deleteExpense(categoryIndex, expenseIndex) {
-    const category = categories[categoryIndex];
-    const expenseAmount = category.expenses[expenseIndex].amount;
-    category.spentAmount -= expenseAmount;
-    totalExpenses -= expenseAmount;
-
-    category.expenses.splice(expenseIndex, 1);
-
-    updateCategoryList();
-    updateSummary();
-    saveData();
+function deleteExpenseUI(category_id, expense_id) {
+    // Implementieren Sie eine Route auf dem Server zum Löschen einer Ausgabe
+    // Diese Funktion muss entsprechend angepasst werden
+    alert('Das Löschen von Ausgaben ist derzeit nicht implementiert.');
 }
 
 function updateCategoryList() {
     const budgetList = document.getElementById('budgetList');
     budgetList.innerHTML = '';
 
-    categories.forEach((category, index) => {
+    categories.forEach((category) => {
         const li = document.createElement('li');
         li.className = 'budget-item';
 
         li.innerHTML = `
             <h3>
                 <i class="${category.icon}"></i> ${category.name}
-                <button class="delete-btn" onclick="deleteCategory(${index})">&times;</button>
+                <button class="delete-btn" onclick="deleteCategory(${category.id})">&times;</button>
             </h3>
             <div class="category-details">
-                <p>Zugewiesen: ${category.allocatedAmount.toFixed(2)} €</p>
-                <p>Ausgegeben: ${category.spentAmount.toFixed(2)} €</p>
-                <p>Verfügbar: ${(category.allocatedAmount - category.spentAmount).toFixed(2)} €</p>
+                <p>Zugewiesen: ${category.allocated_amount.toFixed(2)} €</p>
+                <p>Ausgegeben: ${category.spent_amount.toFixed(2)} €</p>
+                <p>Verfügbar: ${(category.allocated_amount - category.spent_amount).toFixed(2)} €</p>
             </div>
             <div class="add-expense-form">
-                <input type="text" id="expenseDescription${index}" placeholder="Ausgabenbeschreibung">
-                <input type="number" id="expenseAmount${index}" placeholder="Betrag (€)">
-                <button onclick="addExpense(${index})">Ausgabe hinzufügen</button>
+                <input type="text" id="expenseDescription${category.id}" placeholder="Ausgabenbeschreibung">
+                <input type="number" id="expenseAmount${category.id}" placeholder="Betrag (€)" min="0" step="0.01">
+                <button onclick="addExpenseUI(${JSON.stringify(category)})">Ausgabe hinzufügen</button>
                 <br>
                 <label>Kassenzettel scannen:</label>
-                <input type="file" accept="image/*" capture="environment" onchange="scanReceipt(event, ${index})">
+                <input type="file" accept="image/*" capture="environment" onchange="scanReceipt(event, ${category.id})">
             </div>
-            <ul class="expense-list" id="expenseList${index}">
+            <ul class="expense-list" id="expenseList${category.id}">
+                ${category.expenses.map(exp => `
+                    <li class="expense-item">
+                        <span>${exp.description}: ${exp.amount.toFixed(2)} €</span>
+                        <button class="expense-delete-btn" onclick="deleteExpenseUI(${category.id}, ${exp.id})">&times;</button>
+                    </li>
+                `).join('')}
             </ul>
         `;
 
         budgetList.appendChild(li);
-
-        updateExpenseList(index);
-    });
-}
-
-function updateExpenseList(categoryIndex) {
-    const category = categories[categoryIndex];
-    const expenseList = document.getElementById(`expenseList${categoryIndex}`);
-    expenseList.innerHTML = '';
-
-    category.expenses.forEach((expense, expenseIndex) => {
-        const li = document.createElement('li');
-        li.className = 'expense-item';
-
-        li.innerHTML = `
-            <span>${expense.description}: ${expense.amount.toFixed(2)} €</span>
-            <button class="expense-delete-btn" onclick="deleteExpense(${categoryIndex}, ${expenseIndex})">&times;</button>
-        `;
-
-        expenseList.appendChild(li);
     });
 }
 
 function updateSummary() {
+    calculateSummary();
     document.getElementById('displayTotalAmount').innerText = totalAmount.toFixed(2) + ' €';
     document.getElementById('allocatedAmount').innerText = allocatedAmount.toFixed(2) + ' €';
     document.getElementById('totalExpenses').innerText = totalExpenses.toFixed(2) + ' €';
     document.getElementById('remainingAmount').innerText = (totalAmount - allocatedAmount).toFixed(2) + ' €';
 }
 
-// Aktualisierte Funktion zum Scannen des Kassenzettels
-function scanReceipt(event, categoryIndex) {
+function calculateSummary() {
+    allocatedAmount = categories.reduce((sum, cat) => sum + cat.allocated_amount, 0);
+    totalExpenses = categories.reduce((sum, cat) => sum + cat.spent_amount, 0);
+    remainingAmount = totalAmount - allocatedAmount;
+}
+
+function scanReceipt(event, category_id) {
     const fileInput = event.target;
     const file = fileInput.files[0];
     if (file) {
@@ -331,25 +300,20 @@ function scanReceipt(event, categoryIndex) {
                     return;
                 }
 
-                const category = categories[categoryIndex];
+                // Finden der Kategorie
+                const category = categories.find(cat => cat.id === category_id);
+                if (!category) {
+                    alert('Kategorie nicht gefunden.');
+                    return;
+                }
 
-                if (category.spentAmount + amountValue > category.allocatedAmount) {
+                if (category.spent_amount + amountValue > category.allocated_amount) {
                     alert('Der Betrag überschreitet den in dieser Kategorie verfügbaren Betrag.');
                     return;
                 }
 
-                const expense = {
-                    description: description,
-                    amount: amountValue
-                };
-
-                category.expenses.push(expense);
-                category.spentAmount += amountValue;
-                totalExpenses += amountValue;
-
-                updateCategoryList();
-                updateSummary();
-                saveData();
+                // Ausgabe auf dem Server speichern
+                saveExpense(category.id, description, amountValue);
             } else {
                 alert('Fehler beim Verarbeiten des Kassenzettels: ' + data.message);
             }
@@ -359,6 +323,7 @@ function scanReceipt(event, categoryIndex) {
             console.error('Fehler:', error);
             alert('Es ist ein Fehler aufgetreten. Bitte versuchen Sie es erneut.');
         });
+    }
 }
 
 // Aktualisierte Funktion zum Anzeigen des Overlays
