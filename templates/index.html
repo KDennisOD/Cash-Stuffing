@@ -1,74 +1,29 @@
-<!-- templates/index.html -->
 <!DOCTYPE html>
 <html lang="de">
 <head>
     <meta charset="UTF-8">
-    <title>Cash Stuffing App</title>
-    <!-- Font Awesome CDN einbinden -->
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <title>Cash Stuffing</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+    <script src="{{ url_for('static', filename='app.js') }}" defer></script>
 </head>
 <body>
-    <header>
-        <h1>Cash Stuffing App</h1>
-        <nav>
-            <button onclick="logout()">Abmelden</button>
-        </nav>
-    </header>
+    <h1>Cash Stuffing</h1>
 
-    <main>
-        <section class="date-selectors">
-            <select id="monthSelect" onchange="changePeriod()"></select>
-            <select id="yearSelect" onchange="changePeriod()"></select>
-        </section>
-
-        <section class="budget-summary">
-            <div class="summary-item">
-                <p>Gesamtbetrag:</p>
-                <span id="displayTotalAmount">0.00 €</span>
-            </div>
-            <div class="summary-item">
-                <p>Zugewiesen:</p>
-                <span id="allocatedAmount">0.00 €</span>
-            </div>
-            <div class="summary-item">
-                <p>Ausgegeben:</p>
-                <span id="totalExpenses">0.00 €</span>
-            </div>
-            <div class="summary-item">
-                <p>Verfügbar:</p>
-                <span id="remainingAmount">0.00 €</span>
-            </div>
-        </section>
-
-        <section class="set-total-amount">
-            <input type="number" id="totalAmount" placeholder="Gesamtbetrag (€)" min="0" step="0.01">
-            <button onclick="setTotalAmount()">Gesamtbetrag festlegen</button>
-        </section>
-
-        <section class="add-category">
-            <select id="categorySelect">
-                <option value="">Kategorie auswählen</option>
-                <option value="Miete">Miete</option>
-                <option value="Lebensmittel">Lebensmittel</option>
-                <option value="Transport">Transport</option>
-                <option value="Unterhaltung">Unterhaltung</option>
-                <option value="Rechnungen">Rechnungen</option>
-                <option value="Ersparnisse">Ersparnisse</option>
-                <option value="Sonstiges">Sonstiges</option>
-            </select>
-            <input type="text" id="categoryName" placeholder="Oder neuen Namen eingeben">
-            <input type="number" id="categoryAmount" placeholder="Betrag (€)" min="0" step="0.01">
-            <button onclick="addCategory()">Kategorie hinzufügen</button>
-        </section>
-
-        <ul id="budgetList" class="envelope-list"></ul>
-    </main>
-
-    <div id="processingOverlay">
-        <div class="processing-text">Kassenzettel wird verarbeitet...</div>
+    <div id="budgetList">
+        <!-- Kategorien werden hier dynamisch eingefügt -->
     </div>
 
-    <script src="{{ url_for('static', filename='app.js') }}"></script>
+    <div id="summary">
+        <p>Gesamtbetrag: <span id="displayTotalAmount">0.00 €</span></p>
+        <p>Zugewiesen: <span id="allocatedAmount">0.00 €</span></p>
+        <p>Ausgaben: <span id="totalExpenses">0.00 €</span></p>
+        <p>Verfügbar: <span id="remainingAmount">0.00 €</span></p>
+    </div>
+
+    <div id="processingOverlay" style="display: none;">
+        <div class="overlay-content">
+            <p>Verarbeite...</p>
+        </div>
+    </div>
 </body>
 </html>

@@ -100,11 +100,13 @@ def add_category():
     icon = data.get('icon', 'fas fa-envelope')  # Standard-Icon, falls nicht angegeben
 
     if not name or allocated_amount is None:
+        print("Ungültige Daten empfangen")  # Debugging
         return jsonify({'success': False, 'message': 'Ungültige Daten'}), 400
 
     category = Category(user_id=user_id, name=name, allocated_amount=allocated_amount, icon=icon)
     db.session.add(category)
     db.session.commit()
+    print(f"Added category: {category}")  # Debugging
     return jsonify({'success': True, 'category_id': category.id})
 
 # Route zum Hinzufügen einer Ausgabe
@@ -114,24 +116,30 @@ def add_expense():
         return jsonify({'success': False, 'message': 'Nicht autorisiert'}), 401
     user_id = session['user_id']
     data = request.json
+    print(f"Received add_expense data: {data}")  # Debugging
+
     category_id = data.get('category_id')
     description = data.get('description')
     amount = data.get('amount')
 
     if not category_id or not description or amount is None:
+        print("Ungültige Daten empfangen")  # Debugging
         return jsonify({'success': False, 'message': 'Ungültige Daten'}), 400
 
     category = Category.query.filter_by(id=category_id, user_id=user_id).first()
     if not category:
+        print("Kategorie nicht gefunden")  # Debugging
         return jsonify({'success': False, 'message': 'Kategorie nicht gefunden'}), 404
 
     if category.spent_amount + amount > category.allocated_amount:
+        print("Betrag überschreitet verfügbare Menge")  # Debugging
         return jsonify({'success': False, 'message': 'Der Betrag überschreitet den verfügbaren Betrag in dieser Kategorie.'}), 400
 
     expense = Expense(category_id=category_id, description=description, amount=amount)
     category.spent_amount += amount
     db.session.add(expense)
     db.session.commit()
+    print(f"Added expense: {expense}")  # Debugging
     return jsonify({'success': True})
 
 # Route für die OCR-Verarbeitung (unverändert, falls weiterhin benötigt)
