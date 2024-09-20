@@ -3,21 +3,23 @@
 <html lang="de">
 <head>
     <meta charset="UTF-8">
-    <title>Registrieren - Cash Stuffing App</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <title>Registrieren - Cash Stuffing</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
 </head>
 <body>
-    <div class="container">
-        <h2>Registrieren</h2>
-        {% if error %}
-            <p class="error">{{ error }}</p>
-        {% endif %}
-        <form method="POST">
-            <input type="text" name="username" placeholder="Benutzername" required>
-            <input type="password" name="password" placeholder="Passwort" required>
-            <button type="submit">Registrieren</button>
-        </form>
-        <p>Bereits registriert? <a href="{{ url_for('login') }}">Hier anmelden</a></p>
-    </div>
+    <h1>Registrieren</h1>
+    {% if error %}
+        <p class="error">{{ error }}</p>
+    {% endif %}
+    <form method="POST" action="{{ url_for('register') }}">
+        <label for="username">Benutzername:</label>
+        <input type="text" id="username" name="username" required>
+        <br>
+        <label for="password">Passwort:</label>
+        <input type="password" id="password" name="password" required>
+        <br>
+        <button type="submit">Registrieren</button>
+    </form>
+    <p>Bereits registriert? <a href="{{ url_for('login') }}">Hier anmelden</a></p>
 </body>
 </html>

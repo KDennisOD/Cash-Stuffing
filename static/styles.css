@@ -1,18 +1,25 @@
-/* styles.css */
+/* static/styles.css */
 
 body {
     font-family: Arial, sans-serif;
     margin: 20px;
+    background-color: #f4f4f4;
 }
 
-h1 {
+h1, h2, h3 {
+    text-align: center;
+}
+
+.error {
+    color: red;
     text-align: center;
 }
 
 .budget-item {
+    background-color: #fff;
     border: 1px solid #ccc;
     padding: 15px;
-    margin-bottom: 10px;
+    margin-bottom: 15px;
     border-radius: 5px;
 }
 
@@ -43,6 +50,7 @@ h1 {
     display: flex;
     justify-content: space-between;
     padding: 5px 0;
+    border-bottom: 1px solid #eee;
 }
 
 .delete-btn, .expense-delete-btn {
@@ -52,10 +60,24 @@ h1 {
     padding: 5px 10px;
     cursor: pointer;
     border-radius: 3px;
+    text-decoration: none;
 }
 
 .delete-btn:hover, .expense-delete-btn:hover {
     background-color: #e60000;
+}
+
+#addCategorySection {
+    background-color: #fff;
+    border: 1px solid #ccc;
+    padding: 15px;
+    border-radius: 5px;
+    margin-top: 20px;
+}
+
+#addCategorySection form label {
+    display: inline-block;
+    width: 150px;
 }
 
 #processingOverlay {
