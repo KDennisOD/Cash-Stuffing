@@ -30,7 +30,7 @@ def index():
     if 'user_id' in session:
         user = User.query.get(session['user_id'])
         categories = user.categories if user else []
-        return render_template('index.html', categories=categories)
+        return render_template('index.html', user=user, categories=categories)
     else:
         return redirect(url_for('login'))
 
@@ -186,6 +186,48 @@ def delete_expense(category_id, expense_id):
     db.session.commit()
     
     return redirect(url_for('index'))
+
+# Optional: Route für OCR (falls benötigt)
+@app.route('/ocr', methods=['POST'])
+def ocr():
+    if 'user_id' not in session:
+        return jsonify({'success': False, 'message': 'Nicht autorisiert'}), 401
+    
+    if 'receipt' not in request.files:
+        return jsonify({'success': False, 'message': 'Kein Bild hochgeladen'}), 400
+    
+    file = request.files['receipt']
+    if file.filename == '':
+        return jsonify({'success': False, 'message': 'Kein Bild ausgewählt'}), 400
+    
+    try:
+        img = Image.open(file.stream)
+        text = pytesseract.image_to_string(img, lang='de')  # Sprache auf Deutsch setzen
+        
+        # Beispielhafte Verarbeitung des Textes, um Store Name und Betrag zu extrahieren
+        # Dies muss je nach Format der Kassenzettel angepasst werden
+        store_name = "Unbekannt"
+        amount = 0.0
+        
+        # Beispielhafte Regex-Extraktion
+        import re  # Import innerhalb der Funktion
+        store_match = re.search(r'Store\s*:\s*(.*)', text, re.IGNORECASE)
+        amount_match = re.search(r'Amount\s*:\s*([0-9.,]+)', text, re.IGNORECASE)
+        
+        if store_match:
+            store_name = store_match.group(1).strip()
+        if amount_match:
+            amount_str = amount_match.group(1).replace(',', '.')
+            try:
+                amount = float(amount_str)
+            except ValueError:
+                amount = 0.0
+        
+        return jsonify({'success': True, 'storeName': store_name, 'amount': amount})
+    
+    except Exception as e:
+        print(f"OCR Fehler: {e}")
+        return jsonify({'success': False, 'message': 'Fehler bei der Verarbeitung des Bildes'}), 500
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000, debug=True)

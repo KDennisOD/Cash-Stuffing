@@ -10,7 +10,7 @@
 <body>
     <h1>Cash Stuffing</h1>
     
-    {% if categories %}
+    {% if user %}
         <div id="summary">
             <p>Gesamtbetrag: {{ categories | sum(attribute='allocated_amount') | round(2) }} €</p>
             <p>Zugewiesen: {{ categories | sum(attribute='allocated_amount') | round(2) }} €</p>
@@ -70,22 +70,6 @@
         <a href="{{ url_for('logout') }}">Logout</a>
     {% else %}
         <p>Willkommen bei Cash Stuffing! Bitte <a href="{{ url_for('login') }}">melden Sie sich an</a> oder <a href="{{ url_for('register') }}">registrieren Sie sich</a>.</p>
-        
-        <div id="addCategorySection">
-            <h2>Neue Kategorie hinzufügen</h2>
-            <form id="addCategoryForm">
-                <label for="categoryName">Kategorie Name:</label>
-                <input type="text" id="categoryName" name="categoryName" required>
-                <br>
-                <label for="categoryAmount">Zugewiesener Betrag (€):</label>
-                <input type="number" id="categoryAmount" name="categoryAmount" min="0" step="0.01" required>
-                <br>
-                <label for="categoryIcon">Icon-Klasse:</label>
-                <input type="text" id="categoryIcon" name="categoryIcon" placeholder="z.B. fas fa-car">
-                <br>
-                <button type="submit">Kategorie hinzufügen</button>
-            </form>
-        </div>
     {% endif %}
     
     <div id="processingOverlay" style="display: none;">
