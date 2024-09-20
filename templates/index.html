@@ -6,50 +6,66 @@
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
 <body>
-    <h1>Cash Stuffing App</h1>
+    <header>
+        <h1>Cash Stuffing App</h1>
+        <nav>
+            <button onclick="logout()">Abmelden</button>
+        </nav>
+    </header>
 
-    <div class="date-selectors">
-        <select id="monthSelect" onchange="changePeriod()"></select>
-        <select id="yearSelect" onchange="changePeriod()"></select>
-    </div>
+    <main>
+        <section class="date-selectors">
+            <select id="monthSelect" onchange="changePeriod()"></select>
+            <select id="yearSelect" onchange="changePeriod()"></select>
+        </section>
 
-    <div class="budget-summary">
-        <p>Gesamtbetrag: <span id="displayTotalAmount">0.00</span> €</p>
-        <p>Zugewiesen: <span id="allocatedAmount">0.00</span> €</p>
-        <p>Ausgegeben: <span id="totalExpenses">0.00</span> €</p>
-        <p>Verfügbar: <span id="remainingAmount">0.00</span> €</p>
-    </div>
+        <section class="budget-summary">
+            <div class="summary-item">
+                <p>Gesamtbetrag:</p>
+                <span id="displayTotalAmount">0.00 €</span>
+            </div>
+            <div class="summary-item">
+                <p>Zugewiesen:</p>
+                <span id="allocatedAmount">0.00 €</span>
+            </div>
+            <div class="summary-item">
+                <p>Ausgegeben:</p>
+                <span id="totalExpenses">0.00 €</span>
+            </div>
+            <div class="summary-item">
+                <p>Verfügbar:</p>
+                <span id="remainingAmount">0.00 €</span>
+            </div>
+        </section>
 
-    <div class="set-total-amount">
-        <input type="number" id="totalAmount" placeholder="Gesamtbetrag (€)">
-        <button onclick="setTotalAmount()">Gesamtbetrag festlegen</button>
-    </div>
+        <section class="set-total-amount">
+            <input type="number" id="totalAmount" placeholder="Gesamtbetrag (€)" min="0" step="0.01">
+            <button onclick="setTotalAmount()">Gesamtbetrag festlegen</button>
+        </section>
 
-    <div class="add-category">
-        <select id="categorySelect">
-            <option value="">Kategorie auswählen</option>
-            <option value="Miete">Miete</option>
-            <option value="Lebensmittel">Lebensmittel</option>
-            <option value="Transport">Transport</option>
-            <option value="Unterhaltung">Unterhaltung</option>
-            <option value="Rechnungen">Rechnungen</option>
-            <option value="Ersparnisse">Ersparnisse</option>
-            <option value="Sonstiges">Sonstiges</option>
-        </select>
-        <input type="text" id="categoryName" placeholder="Oder neuen Namen eingeben">
-        <input type="number" id="categoryAmount" placeholder="Betrag (€)">
-        <button onclick="addCategory()">Kategorie hinzufügen</button>
-    </div>
+        <section class="add-category">
+            <select id="categorySelect">
+                <option value="">Kategorie auswählen</option>
+                <option value="Miete">Miete</option>
+                <option value="Lebensmittel">Lebensmittel</option>
+                <option value="Transport">Transport</option>
+                <option value="Unterhaltung">Unterhaltung</option>
+                <option value="Rechnungen">Rechnungen</option>
+                <option value="Ersparnisse">Ersparnisse</option>
+                <option value="Sonstiges">Sonstiges</option>
+            </select>
+            <input type="text" id="categoryName" placeholder="Oder neuen Namen eingeben">
+            <input type="number" id="categoryAmount" placeholder="Betrag (€)" min="0" step="0.01">
+            <button onclick="addCategory()">Kategorie hinzufügen</button>
+        </section>
 
-    <ul id="budgetList"></ul>
+        <ul id="budgetList"></ul>
+    </main>
 
     <div id="processingOverlay">
         <div class="processing-text">Kassenzettel wird verarbeitet...</div>
     </div>
 
-    <script>
-        // Alle JavaScript-Funktionen aus deiner 'app.js' hier einfügen oder die Datei korrekt einbinden
-    </script>
     <script src="{{ url_for('static', filename='app.js') }}"></script>
 </body>
 </html>

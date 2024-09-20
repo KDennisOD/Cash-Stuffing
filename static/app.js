@@ -282,8 +282,10 @@ function updateSummary() {
     document.getElementById('remainingAmount').innerText = (totalAmount - allocatedAmount).toFixed(2);
 }
 
+// Aktualisierte Funktion zum Scannen des Kassenzettels
 function scanReceipt(event, categoryIndex) {
-    const file = event.target.files[0];
+    const fileInput = event.target;
+    const file = fileInput.files[0];
     if (file) {
         const formData = new FormData();
         formData.append('receipt', file);
@@ -297,6 +299,9 @@ function scanReceipt(event, categoryIndex) {
         .then(response => response.json())
         .then(data => {
             hideProcessingOverlay();
+
+            // Zurücksetzen des File Inputs
+            fileInput.value = '';
 
             if (data.success) {
                 const amountValue = parseFloat(data.amount);
@@ -338,14 +343,21 @@ function scanReceipt(event, categoryIndex) {
     }
 }
 
+// Aktualisierte Funktion zum Anzeigen des Overlays
 function showProcessingOverlay() {
     const overlay = document.getElementById('processingOverlay');
     overlay.style.display = 'flex';
 }
 
+// Aktualisierte Funktion zum Verbergen des Overlays
 function hideProcessingOverlay() {
     const overlay = document.getElementById('processingOverlay');
     overlay.style.display = 'none';
+}
+
+// Hinzufügen der Logout-Funktion
+function logout() {
+    window.location.href = '/logout';
 }
 
 // App initialisieren
