@@ -1,107 +1,102 @@
-# server.py
-from flask import Flask, render_template, request, redirect, url_for, session, jsonify
-from flask_bcrypt import Bcrypt
-from models import db, User, Data
+from flask import Flask, request, jsonify
 import pytesseract
 from PIL import Image
+import numpy as np
+import cv2
 import re
 
 app = Flask(__name__)
-app.secret_key = 'your_secret_key_here'  # Ersetze dies durch einen sicheren Schlüssel
 
-app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///cash_stuffing.db'
-app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+def preprocess_image(file_stream):
+    # Bild aus dem Dateistream lesen
+    file_bytes = np.asarray(bytearray(file_stream.read()), dtype=np.uint8)
+    img = cv2.imdecode(file_bytes, cv2.IMREAD_COLOR)
 
-bcrypt = Bcrypt(app)
+    # In Graustufen konvertieren
+    gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
 
-db.init_app(app)
+    # Rauschunterdrückung mittels Gaußscher Weichzeichnung
+    blur = cv2.GaussianBlur(gray, (5, 5), 0)
 
-with app.app_context():
-    db.create_all()
+    # Schwellwertsetzung (Otsu's Methode)
+    thresh = cv2.threshold(blur, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)[1]
 
-# Routen für die Benutzerregistrierung und -anmeldung
-@app.route('/register', methods=['GET', 'POST'])
-def register():
-    if request.method == 'POST':
-        # Registrierungsformular verarbeiten
-        username = request.form['username']
-        password = request.form['password']
-        # Überprüfe, ob der Benutzername bereits existiert
-        existing_user = User.query.filter_by(username=username).first()
-        if existing_user:
-            return render_template('register.html', error='Benutzername bereits vergeben.')
-        # Passwort hashen
-        hashed_password = bcrypt.generate_password_hash(password).decode('utf-8')
-        # Neuen Benutzer erstellen
-        new_user = User(username=username, password=hashed_password)
-        db.session.add(new_user)
-        db.session.commit()
-        return redirect(url_for('login'))
+    # Morphologische Operationen
+    kernel = np.ones((1, 1), np.uint8)
+    img_dilated = cv2.dilate(thresh, kernel, iterations=1)
+    img_eroded = cv2.erode(img_dilated, kernel, iterations=1)
+
+    # Entzerrung (Bild begradigen)
+    coords = np.column_stack(np.where(img_eroded > 0))
+    angle = cv2.minAreaRect(coords)[-1]
+    if angle < -45:
+        angle = -(90 + angle)
     else:
-        return render_template('register.html')
+        angle = -angle
 
-@app.route('/login', methods=['GET', 'POST'])
-def login():
-    if request.method == 'POST':
-        # Anmeldeformular verarbeiten
-        username = request.form['username']
-        password = request.form['password']
-        # Benutzer authentifizieren
-        user = User.query.filter_by(username=username).first()
-        if user and bcrypt.check_password_hash(user.password, password):
-            # Anmeldung erfolgreich
-            session['user_id'] = user.id
-            return redirect(url_for('index'))
-        else:
-            # Anmeldung fehlgeschlagen
-            return render_template('login.html', error='Ungültiger Benutzername oder Passwort.')
-    else:
-        return render_template('login.html')
+    (h, w) = img_eroded.shape
+    center = (w // 2, h // 2)
+    M = cv2.getRotationMatrix2D(center, angle, 1.0)
+    img_rotated = cv2.warpAffine(img_eroded, M, (w, h), flags=cv2.INTER_CUBIC, borderMode=cv2.BORDER_REPLICATE)
 
-@app.route('/logout')
-def logout():
-    session.clear()
-    return redirect(url_for('login'))
+    # Skalierung
+    img_resized = cv2.resize(img_rotated, None, fx=2, fy=2, interpolation=cv2.INTER_CUBIC)
 
-# Hauptseite der App
-@app.route('/')
-def index():
-    if 'user_id' not in session:
-        return redirect(url_for('login'))
-    return render_template('index.html')
+    # In PIL-Image konvertieren
+    preprocessed_image = Image.fromarray(img_resized)
 
-# API-Endpunkte zum Laden und Speichern von Daten
-@app.route('/get_data', methods=['GET'])
-def get_data():
-    if 'user_id' not in session:
-        return jsonify({'error': 'Nicht autorisiert'}), 401
-    user_id = session['user_id']
-    data_entry = Data.query.filter_by(user_id=user_id).first()
-    if data_entry:
-        return jsonify({'success': True, 'data': data_entry.content})
-    else:
-        return jsonify({'success': True, 'data': {}})
+    return preprocessed_image
 
-@app.route('/save_data', methods=['POST'])
-def save_data():
-    if 'user_id' not in session:
-        return jsonify({'error': 'Nicht autorisiert'}), 401
-    user_id = session['user_id']
-    content = request.json.get('data')
-    data_entry = Data.query.filter_by(user_id=user_id).first()
-    if data_entry:
-        data_entry.content = content
-    else:
-        data_entry = Data(user_id=user_id, content=content)
-        db.session.add(data_entry)
-    db.session.commit()
-    return jsonify({'success': True})
+def extract_amount_from_text(text):
+    lines = text.split('\n')
+    amount = None
+    amount_keywords = ['gesamt', 'summe', 'total', 'endbetrag', 'zu zahlen', 'betrag']
 
-# OCR-Verarbeitung
+    for line in lines:
+        lower_line = line.lower()
+        if any(keyword in lower_line for keyword in amount_keywords):
+            regex = r'(\d+[.,]\d{2})'
+            matches = re.findall(regex, line)
+            if matches:
+                amount_str = matches[-1].replace(',', '.')
+                try:
+                    amount = float(amount_str)
+                    return amount
+                except ValueError:
+                    continue
+
+    regex = r'(\d+[.,]\d{2})'
+    matches = re.findall(regex, text)
+    if matches:
+        amount_str = matches[-1].replace(',', '.')
+        try:
+            amount = float(amount_str)
+            return amount
+        except ValueError:
+            pass
+
+    return None
+
+def extract_store_name(text):
+    lines = text.strip().split('\n')
+    possible_names = []
+    for line in lines[:10]:
+        line = line.strip()
+        if line and not any(char.isdigit() for char in line):
+            if line.isupper():
+                possible_names.append(line)
+            else:
+                words = line.split()
+                capitalized_words = [word for word in words if word[0].isupper()]
+                if len(capitalized_words) >= len(words) / 2:
+                    possible_names.append(line)
+
+    if possible_names:
+        return max(possible_names, key=len)
+    return 'Unbekanntes Geschäft'
+
 @app.route('/ocr', methods=['POST'])
 def ocr():
-    if 'user_id' not in session:
-        return jsonify({'success': False, 'message': 'Nicht autorisiert'}), 401
     if 'receipt' not in request.files:
         return jsonify({'success': False, 'message': 'Keine Datei hochgeladen.'}), 400
 
@@ -111,10 +106,9 @@ def ocr():
 
     if file and allowed_file(file.filename):
         try:
-            image = Image.open(file.stream)
-            text = pytesseract.image_to_string(image, lang='deu')
-
-            # Betrag und Geschäftsname extrahieren
+            preprocessed_image = preprocess_image(file.stream)
+            custom_config = r'--oem 3 --psm 6'
+            text = pytesseract.image_to_string(preprocessed_image, lang='deu', config=custom_config)
             amount = extract_amount_from_text(text)
             store_name = extract_store_name(text)
 
@@ -134,28 +128,7 @@ def ocr():
 def allowed_file(filename):
     allowed_extensions = {'png', 'jpg', 'jpeg'}
     return '.' in filename and \
-        filename.rsplit('.', 1)[1].lower() in allowed_extensions
-
-def extract_amount_from_text(text):
-    regex = r'(\d+[\.,]\d{2})'
-    matches = re.findall(regex, text)
-    if matches:
-        amount_str = matches[-1]
-        amount_str = amount_str.replace(',', '.')
-        try:
-            amount = float(amount_str)
-            return amount
-        except ValueError:
-            return None
-    return None
-
-def extract_store_name(text):
-    lines = text.strip().split('\n')
-    for line in lines[:5]:
-        line = line.strip()
-        if line and not any(char.isdigit() for char in line):
-            return line
-    return None
+           filename.rsplit('.', 1)[1].lower() in allowed_extensions
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000)
