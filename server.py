@@ -28,7 +28,9 @@ migrate = Migrate(app, db)  # Initialisierung von Flask-Migrate
 @app.route('/')
 def index():
     if 'user_id' in session:
-        return render_template('index.html')
+        user = User.query.get(session['user_id'])
+        categories = user.categories if user else []
+        return render_template('index.html', categories=categories)
     else:
         return redirect(url_for('login'))
 
