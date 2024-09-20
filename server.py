@@ -1,23 +1,25 @@
 # server.py
 from flask import Flask, request, jsonify, session, redirect, url_for, render_template
 from flask_bcrypt import Bcrypt
-from flask_sqlalchemy import SQLAlchemy
+from flask_migrate import Migrate
 import pytesseract
 from PIL import Image, ImageFilter
 import numpy as np
 import re
 import os
 
+from db import db  # Import der SQLAlchemy-Instanz
+from models import User, Category, Expense  # Import der Modelle
+
 app = Flask(__name__)
 app.secret_key = os.environ.get('SECRET_KEY', 'ersetze_durch_sicheren_schlüssel')  # Sicherer Schlüssel aus Umgebungsvariablen
-app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///users.db'  # Oder dein gewünschtes Datenbanksystem
+app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///instance/users.db'  # Pfad zur Datenbank
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 bcrypt = Bcrypt(app)
-db = SQLAlchemy(app)
 
-# Datenbankmodelle importieren
-from models import User, Category, Expense
+db.init_app(app)  # Initialisierung der SQLAlchemy-Instanz mit der Flask-App
+migrate = Migrate(app, db)  # Initialisierung von Flask-Migrate
 
 # Route für die Startseite
 @app.route('/')
@@ -51,7 +53,7 @@ def login():
             session['user_id'] = user.id
             return redirect(url_for('index'))
         else:
-            return 'Ungültige Anmeldedaten'
+            return 'Ungültige Anmeldedaten', 401
     return render_template('login.html')
 
 # Route für das Logout
@@ -70,7 +72,7 @@ def get_data():
     if user:
         categories = []
         for category in user.categories:
-            expenses = [{'description': exp.description, 'amount': exp.amount} for exp in category.expenses]
+            expenses = [{'id': exp.id, 'description': exp.description, 'amount': exp.amount} for exp in category.expenses]
             categories.append({
                 'id': category.id,
                 'name': category.name,
@@ -83,7 +85,7 @@ def get_data():
     else:
         return jsonify({'success': False, 'message': 'Benutzer nicht gefunden'}), 404
 
-# Route zum Speichern der Budgetdaten (z.B. Hinzufügen einer Kategorie)
+# Route zum Hinzufügen einer Kategorie
 @app.route('/add_category', methods=['POST'])
 def add_category():
     if 'user_id' not in session:
