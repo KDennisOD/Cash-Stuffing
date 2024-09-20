@@ -13,9 +13,59 @@
     </header>
 
     <div class="container">
-        <!-- Hier kommt der Inhalt der App -->
-        <!-- Binde die JavaScript-Datei ein -->
-        <script src="{{ url_for('static', filename='app.js') }}"></script>
+        <h2>Monat und Jahr auswählen</h2>
+        <div class="input-group">
+            <select id="monthSelect" onchange="changePeriod()">
+                <!-- Monate werden per JavaScript eingefügt -->
+            </select>
+            <select id="yearSelect" onchange="changePeriod()">
+                <!-- Jahre werden per JavaScript eingefügt -->
+            </select>
+        </div>
+
+        <h2>Gesamtbetrag eingeben</h2>
+        <div class="input-group">
+            <input type="number" id="totalAmount" placeholder="Gesamtbetrag (€)">
+            <button onclick="setTotalAmount()">Festlegen</button>
+        </div>
+
+        <h2>Neue Kategorie hinzufügen</h2>
+        <div class="input-group">
+            <select id="categorySelect">
+                <option value="">Kategorie auswählen</option>
+                <option value="Miete/Wohnung">Miete/Wohnung</option>
+                <option value="Lebensmittel">Lebensmittel</option>
+                <option value="Versicherungen">Versicherungen</option>
+                <option value="Transport">Transport</option>
+                <option value="Freizeit">Freizeit</option>
+                <option value="Ersparnisse">Ersparnisse</option>
+                <option value="Gesundheit">Gesundheit</option>
+                <option value="Sonstiges">Sonstiges</option>
+            </select>
+            <input type="text" id="categoryName" placeholder="Oder neue Kategorie eingeben">
+            <input type="number" id="categoryAmount" placeholder="Betrag (€)">
+            <button onclick="addCategory()">Hinzufügen</button>
+        </div>
+
+        <ul class="budget-list" id="budgetList"></ul>
+
+        <div class="budget-summary">
+            <h3>Zusammenfassung</h3>
+            <p>Gesamtbetrag: <strong><span id="displayTotalAmount">0.00</span> €</strong></p>
+            <p>Verteilte Beträge: <strong><span id="allocatedAmount">0.00</span> €</strong></p>
+            <p>Gesamtausgaben: <strong><span id="totalExpenses">0.00</span> €</strong></p>
+            <p>Gesamt verfügbar: <strong><span id="remainingAmount">0.00</span> €</strong></p>
+        </div>
     </div>
+
+    <!-- Verarbeitungsanzeige -->
+    <div class="processing-overlay" id="processingOverlay">
+        <div class="processing-message">
+            <p>Verarbeitung läuft...</p>
+        </div>
+    </div>
+
+    <!-- JavaScript-Datei einbinden -->
+    <script src="{{ url_for('static', filename='app.js') }}"></script>
 </body>
 </html>
