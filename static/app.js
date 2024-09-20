@@ -1,16 +1,13 @@
-// static/app.js
-// JavaScript-Code für die App
-
-// Initialisierung der Variablen
 let totalAmount = 0;
 let allocatedAmount = 0;
 let totalExpenses = 0;
+let remainingAmount = 0;
 let categories = [];
 let data = {};
-let currentMonth;
-let currentYear;
+let currentMonth = '';
+let currentYear = '';
 
-// Funktion zur Initialisierung der Datumsauswahl
+// Initialisierung der Datumsauswahl
 function initDateSelectors() {
     const monthSelect = document.getElementById('monthSelect');
     const yearSelect = document.getElementById('yearSelect');
